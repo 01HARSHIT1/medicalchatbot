@@ -47,12 +47,18 @@ const Logo1 = () => {
       
       if (isProduction && !import.meta.env.VITE_API_URL) {
         setError(
-          "🔧 Backend API Configuration Required\n\n" +
-          "To use this feature, please:\n" +
-          "1. Deploy the backend to Railway (railway.app) or Render (render.com)\n" +
-          "2. Set VITE_API_URL in Vercel Settings → Environment Variables\n" +
-          "3. Redeploy your Vercel app\n\n" +
-          "See BACKEND_SETUP.md in the repository for detailed instructions."
+          <div style={{textAlign: 'left', lineHeight: '1.8'}}>
+            <h4 style={{color: '#ff6b6b', marginBottom: '15px'}}>🔧 Backend API Configuration Required</h4>
+            <p style={{marginBottom: '10px'}}><strong>Quick Setup (5 minutes):</strong></p>
+            <ol style={{marginLeft: '20px', marginBottom: '15px'}}>
+              <li>Deploy backend to <a href="https://railway.app/new" target="_blank" rel="noopener noreferrer" style={{color: '#4dabf7'}}>Railway</a> (free tier available)</li>
+              <li>Set <code style={{background: '#f1f3f5', padding: '2px 6px', borderRadius: '3px'}}>VITE_API_URL</code> in Vercel Settings → Environment Variables</li>
+              <li>Redeploy your Vercel app</li>
+            </ol>
+            <p style={{marginTop: '15px', fontSize: '0.9em', color: '#868e96'}}>
+              📖 See <code style={{background: '#f1f3f5', padding: '2px 6px'}}>backend-api/DEPLOY_NOW.md</code> for step-by-step instructions
+            </p>
+          </div>
         );
         setLoading(false);
         return;

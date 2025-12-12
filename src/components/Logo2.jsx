@@ -15,12 +15,18 @@ const Logo2 = () => {
     // Check if URL is configured in production
     if (isProduction && !import.meta.env.VITE_IMAGE_URL) {
       setError(
-        "🔧 Image Recognition Service Configuration Required\n\n" +
-        "To use this feature, please:\n" +
-        "1. Deploy Streamlit app to Streamlit Cloud (streamlit.io) or Railway\n" +
-        "2. Set VITE_IMAGE_URL in Vercel Settings → Environment Variables\n" +
-        "3. Redeploy your Vercel app\n\n" +
-        "See BACKEND_SETUP.md in the repository for detailed instructions."
+        <div style={{textAlign: 'left', lineHeight: '1.8'}}>
+          <h4 style={{color: '#ff6b6b', marginBottom: '15px'}}>🔧 Image Recognition Service Configuration Required</h4>
+          <p style={{marginBottom: '10px'}}><strong>Quick Setup:</strong></p>
+          <ol style={{marginLeft: '20px', marginBottom: '15px'}}>
+            <li>Deploy Streamlit app to <a href="https://share.streamlit.io" target="_blank" rel="noopener noreferrer" style={{color: '#4dabf7'}}>Streamlit Cloud</a> (free) or <a href="https://railway.app" target="_blank" rel="noopener noreferrer" style={{color: '#4dabf7'}}>Railway</a></li>
+            <li>Set <code style={{background: '#f1f3f5', padding: '2px 6px', borderRadius: '3px'}}>VITE_IMAGE_URL</code> in Vercel Settings → Environment Variables</li>
+            <li>Redeploy your Vercel app</li>
+          </ol>
+          <p style={{marginTop: '15px', fontSize: '0.9em', color: '#868e96'}}>
+            📖 See deployment guide in repository for detailed instructions
+          </p>
+        </div>
       );
       return;
     }
