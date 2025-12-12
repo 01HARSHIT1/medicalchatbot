@@ -270,7 +270,13 @@ const Logo1 = () => {
         {error && (
           <div className="error-message">
             <span className="error-icon">⚠️</span>
-            {error}
+            <div className="error-content">
+              {typeof error === 'string' ? (
+                <pre style={{whiteSpace: 'pre-wrap', fontFamily: 'inherit'}}>{error}</pre>
+              ) : (
+                error
+              )}
+            </div>
           </div>
         )}
       </div>

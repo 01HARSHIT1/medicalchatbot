@@ -63,8 +63,12 @@ const Logo3 = () => {
       </div>
       
       {error && (
-        <div className="mt-4 alert alert-danger" style={{ whiteSpace: 'pre-line', textAlign: 'left' }}>
-          {error}
+        <div className="mt-4 alert alert-danger" style={{ textAlign: 'left' }}>
+          {typeof error === 'string' ? (
+            <pre style={{whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0}}>{error}</pre>
+          ) : (
+            error
+          )}
         </div>
       )}
       
