@@ -47,9 +47,12 @@ const Logo1 = () => {
       
       if (isProduction && !import.meta.env.VITE_API_URL) {
         setError(
-          "⚠️ Backend API not configured. " +
-          "Please set VITE_API_URL environment variable in Vercel settings. " +
-          "The backend needs to be deployed separately (Railway, Render, or Vercel serverless functions)."
+          "🔧 Backend API Configuration Required\n\n" +
+          "To use this feature, please:\n" +
+          "1. Deploy the backend to Railway (railway.app) or Render (render.com)\n" +
+          "2. Set VITE_API_URL in Vercel Settings → Environment Variables\n" +
+          "3. Redeploy your Vercel app\n\n" +
+          "See BACKEND_SETUP.md in the repository for detailed instructions."
         );
         setLoading(false);
         return;

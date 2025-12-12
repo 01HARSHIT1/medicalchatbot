@@ -15,9 +15,12 @@ const Logo3 = () => {
     // Check if URL is configured in production
     if (isProduction && !import.meta.env.VITE_CHATBOT_URL) {
       setError(
-        "⚠️ Chatbot service not configured. " +
-        "Please set VITE_CHATBOT_URL environment variable in Vercel settings. " +
-        "The chatbot needs to be deployed separately (Railway, Render, or Vercel serverless functions)."
+        "🔧 Chatbot Service Configuration Required\n\n" +
+        "To use this feature, please:\n" +
+        "1. Deploy chatbot to Railway (railway.app) or Render (render.com)\n" +
+        "2. Set VITE_CHATBOT_URL in Vercel Settings → Environment Variables\n" +
+        "3. Redeploy your Vercel app\n\n" +
+        "See BACKEND_SETUP.md in the repository for detailed instructions."
       );
       return;
     }

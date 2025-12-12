@@ -15,9 +15,12 @@ const Logo2 = () => {
     // Check if URL is configured in production
     if (isProduction && !import.meta.env.VITE_IMAGE_URL) {
       setError(
-        "⚠️ Image Recognition service not configured. " +
-        "Please set VITE_IMAGE_URL environment variable in Vercel settings. " +
-        "The Streamlit app needs to be deployed separately (Streamlit Cloud, Railway, or Render)."
+        "🔧 Image Recognition Service Configuration Required\n\n" +
+        "To use this feature, please:\n" +
+        "1. Deploy Streamlit app to Streamlit Cloud (streamlit.io) or Railway\n" +
+        "2. Set VITE_IMAGE_URL in Vercel Settings → Environment Variables\n" +
+        "3. Redeploy your Vercel app\n\n" +
+        "See BACKEND_SETUP.md in the repository for detailed instructions."
       );
       return;
     }
