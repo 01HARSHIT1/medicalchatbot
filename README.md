@@ -122,7 +122,10 @@ vercel
 ```
 
 3. **Set environment variables in Vercel dashboard**
-   - `VITE_API_URL`: Your backend API URL
+   - Go to: Project Settings → Environment Variables
+   - Add: `VITE_API_URL` = `https://your-backend-url.com`
+   - **IMPORTANT**: The backend must be deployed separately (see BACKEND_SETUP.md)
+   - After adding variables, redeploy your app
 
 ### GitHub Deployment
 
