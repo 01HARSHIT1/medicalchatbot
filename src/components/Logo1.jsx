@@ -272,6 +272,7 @@ const Logo1 = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
