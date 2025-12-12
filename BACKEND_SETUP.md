@@ -92,10 +92,47 @@ curl -X POST https://your-backend-url.com/predict \
 
 ## Environment Variables Checklist
 
-In Vercel, set:
-- ✅ `VITE_API_URL` = Your deployed backend URL
-- ⚠️ `VITE_IMAGE_URL` = Image recognition URL (optional)
-- ⚠️ `VITE_CHATBOT_URL` = Chatbot URL (optional)
+In Vercel, set these environment variables:
 
-After setting variables, **redeploy** your Vercel app!
+### Required:
+- ✅ `VITE_API_URL` = Your deployed medical prediction backend URL
+  - Example: `https://your-medical-backend.railway.app`
+
+### Optional (but recommended):
+- ⚠️ `VITE_IMAGE_URL` = Image recognition service URL
+  - Example: `https://your-image-app.streamlit.app` (Streamlit Cloud)
+  - Or: `https://your-image-app.railway.app` (Railway)
+  
+- ⚠️ `VITE_CHATBOT_URL` = Chatbot service URL
+  - Example: `https://your-chatbot.railway.app` (Railway)
+  - Or: `https://your-chatbot.onrender.com` (Render)
+
+**Important:** After setting variables, **redeploy** your Vercel app!
+
+## Deploying All Services
+
+### 1. Medical Prediction Backend (Required)
+- Deploy `SaveBackUpProjectAML/react-flask-app` to Railway/Render
+- Set `VITE_API_URL` in Vercel
+
+### 2. Image Recognition (Optional)
+- Deploy `SaveBackUpProjectAML/Image_Recognition` to Streamlit Cloud or Railway
+- Set `VITE_IMAGE_URL` in Vercel
+
+### 3. Chatbot (Optional)
+- Deploy `SaveBackUpProjectAML/zexp3` to Railway/Render
+- Set `VITE_CHATBOT_URL` in Vercel
+
+## Quick Test
+
+After deployment, test each service:
+- Medical: Enter symptoms and click Predict
+- Image: Click "Start Image Recognition Server" button
+- Chatbot: Click "Start Chatbot Server" button
+
+If any service shows an error, check:
+1. Service is deployed and running
+2. Environment variable is set correctly
+3. CORS is enabled on the backend
+4. URL is accessible (try opening in browser)
 
