@@ -89,12 +89,19 @@ const Logo1 = () => {
         const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         if (isProduction) {
           setError(
-            "❌ Cannot connect to backend API. " +
-            "Please ensure:\n" +
-            "1. Backend is deployed and accessible\n" +
-            "2. VITE_API_URL is set in Vercel environment variables\n" +
-            "3. CORS is enabled on the backend\n" +
-            "4. Backend URL is correct"
+            <div style={{textAlign: 'left', lineHeight: '1.8'}}>
+              <h4 style={{color: '#ff6b6b', marginBottom: '10px'}}>❌ Cannot connect to backend API</h4>
+              <p style={{marginBottom: '10px'}}>Please ensure:</p>
+              <ul style={{marginLeft: '20px', marginBottom: '10px'}}>
+                <li>Backend is deployed and accessible</li>
+                <li><code style={{background: '#f1f3f5', padding: '2px 6px'}}>VITE_API_URL</code> is set in Vercel environment variables</li>
+                <li>CORS is enabled on the backend</li>
+                <li>Backend URL is correct (test it in your browser)</li>
+              </ul>
+              <p style={{fontSize: '0.9em', color: '#868e96', marginTop: '10px'}}>
+                Current API URL: <code style={{background: '#f1f3f5', padding: '2px 6px'}}>{apiUrl}</code>
+              </p>
+            </div>
           );
         } else {
           setError("Cannot connect to server. Make sure the backend is running on port 5000.");
