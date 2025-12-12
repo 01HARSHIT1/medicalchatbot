@@ -39,13 +39,29 @@ const Logo1 = () => {
       // Clean and split symptoms
       const symptoms = transcription.split(",").map(s => s.trim()).filter(s => s);
       
+      // Get API URL from environment or use default
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      
+      // Check if we're in production and no API URL is configured
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      
+      if (isProduction && !import.meta.env.VITE_API_URL) {
+        setError(
+          "⚠️ Backend API not configured. " +
+          "Please set VITE_API_URL environment variable in Vercel settings. " +
+          "The backend needs to be deployed separately (Railway, Render, or Vercel serverless functions)."
+        );
+        setLoading(false);
+        return;
+      }
+      
       const response = await axios.post(`${apiUrl}/predict`, {
         symptoms: symptoms,
       }, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
       
       if (response.data && response.data.predicted_disease) {
@@ -56,10 +72,24 @@ const Logo1 = () => {
       }
     } catch (error) {
       console.error("Prediction error:", error);
-      if (error.response) {
-        setError(`Failed to fetch prediction: ${error.response.data?.error || error.response.statusText}`);
+      if (error.code === 'ECONNABORTED') {
+        setError("Request timeout. The server is taking too long to respond.");
+      } else if (error.response) {
+        setError(`Server error: ${error.response.data?.error || error.response.statusText} (Status: ${error.response.status})`);
       } else if (error.request) {
-        setError("Cannot connect to server. Make sure the backend is running on port 5000.");
+        const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+        if (isProduction) {
+          setError(
+            "❌ Cannot connect to backend API. " +
+            "Please ensure:\n" +
+            "1. Backend is deployed and accessible\n" +
+            "2. VITE_API_URL is set in Vercel environment variables\n" +
+            "3. CORS is enabled on the backend\n" +
+            "4. Backend URL is correct"
+          );
+        } else {
+          setError("Cannot connect to server. Make sure the backend is running on port 5000.");
+        }
       } else {
         setError("Failed to fetch prediction: " + error.message);
       }
@@ -76,6 +106,11 @@ const Logo1 = () => {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const response = await axios.post(`${apiUrl}/check_disease`, {
         disease_name: predictedDisease.predicted_disease,
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
       });
       setDiseaseData(response.data);
       setShowDiseaseModal(true);
