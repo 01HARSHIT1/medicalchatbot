@@ -39,39 +39,11 @@ const Logo1 = () => {
       // Clean and split symptoms
       const symptoms = transcription.split(",").map(s => s.trim()).filter(s => s);
       
-      // Get API URL - use environment variable or localhost for local dev
-      const apiUrl = import.meta.env.VITE_API_URL || 
-                     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                       ? "http://localhost:5000" 
-                       : null);
-      
-      // Debug: Log the API URL (remove in production if needed)
-      console.log("API URL:", apiUrl);
-      console.log("VITE_API_URL env var:", import.meta.env.VITE_API_URL);
-      
-      // No need to check for production - Vercel serverless functions work automatically
-      // Only show error if explicitly configured external URL fails
-      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const usingExternalApi = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== (window.location.origin + "/api");
-      
-      if (isProduction && usingExternalApi && !import.meta.env.VITE_API_URL) {
-        setError(
-          <div style={{textAlign: 'left', lineHeight: '1.8'}}>
-            <h4 style={{color: '#ff6b6b', marginBottom: '15px'}}>🔧 Backend API Configuration Required</h4>
-            <p style={{marginBottom: '10px'}}><strong>Quick Setup (5 minutes):</strong></p>
-            <ol style={{marginLeft: '20px', marginBottom: '15px'}}>
-              <li>Deploy backend to <a href="https://railway.app/new" target="_blank" rel="noopener noreferrer" style={{color: '#4dabf7'}}>Railway</a> (free tier available)</li>
-              <li>Set <code style={{background: '#f1f3f5', padding: '2px 6px', borderRadius: '3px'}}>VITE_API_URL</code> in Vercel Settings → Environment Variables</li>
-              <li>Redeploy your Vercel app</li>
-            </ol>
-            <p style={{marginTop: '15px', fontSize: '0.9em', color: '#868e96'}}>
-              📖 See <code style={{background: '#f1f3f5', padding: '2px 6px'}}>backend-api/DEPLOY_NOW.md</code> for step-by-step instructions
-            </p>
-          </div>
-        );
-        setLoading(false);
-        return;
-      }
+      // Use Vercel serverless functions (no external API needed)
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const apiUrl = isLocal 
+        ? "http://localhost:5000"  // Local development
+        : "/api";  // Vercel serverless functions (no env vars needed!)
       
       const response = await axios.post(`${apiUrl}/predict`, {
         symptoms: symptoms,
@@ -95,25 +67,11 @@ const Logo1 = () => {
       } else if (error.response) {
         setError(`Server error: ${error.response.data?.error || error.response.statusText} (Status: ${error.response.status})`);
       } else if (error.request) {
-        const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-        if (isProduction) {
-          setError(
-            <div style={{textAlign: 'left', lineHeight: '1.8'}}>
-              <h4 style={{color: '#ff6b6b', marginBottom: '10px'}}>❌ Cannot connect to backend API</h4>
-              <p style={{marginBottom: '10px'}}>Please ensure:</p>
-              <ul style={{marginLeft: '20px', marginBottom: '10px'}}>
-                <li>Backend is deployed and accessible</li>
-                <li><code style={{background: '#f1f3f5', padding: '2px 6px'}}>VITE_API_URL</code> is set in Vercel environment variables</li>
-                <li>CORS is enabled on the backend</li>
-                <li>Backend URL is correct (test it in your browser)</li>
-              </ul>
-              <p style={{fontSize: '0.9em', color: '#868e96', marginTop: '10px'}}>
-                Current API URL: <code style={{background: '#f1f3f5', padding: '2px 6px'}}>{apiUrl}</code>
-              </p>
-            </div>
-          );
-        } else {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
           setError("Cannot connect to server. Make sure the backend is running on port 5000.");
+        } else {
+          setError("Cannot connect to API. Please try again or check your internet connection.");
         }
       } else {
         setError("Failed to fetch prediction: " + error.message);
@@ -128,16 +86,8 @@ const Logo1 = () => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 
-                     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                       ? "http://localhost:5000" 
-                       : null);
-      
-      if (!apiUrl) {
-        setError("API URL not configured. Please set VITE_API_URL in Vercel environment variables.");
-        setLoading(false);
-        return;
-      }
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const apiUrl = isLocal ? "http://localhost:5000" : "/api";
       
       const response = await axios.post(`${apiUrl}/check_disease`, {
         disease_name: predictedDisease.predicted_disease,
