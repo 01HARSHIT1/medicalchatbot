@@ -1,17 +1,13 @@
 """
 Optimized Vercel Serverless Function - Works entirely on Vercel
-Smart fallback: Tries ML model, falls back to lightweight rule-based prediction
+Lightweight rule-based prediction - No heavy ML dependencies
 """
 import sys
 import os
 import json
+import csv
 
-# Add backend-api to path
-backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
-if os.path.exists(backend_path):
-    sys.path.insert(0, backend_path)
-
-# Lightweight fallback functions
+# Lightweight fallback functions (no pandas, no ML libraries)
 def predict_disease_lightweight(symptoms):
     """Lightweight rule-based prediction (always works)"""
     symptoms_lower = [s.lower().replace(' ', '_') for s in symptoms]
@@ -32,6 +28,8 @@ def predict_disease_lightweight(symptoms):
         'Hepatitis A': ['vomiting', 'yellowish_skin', 'dark_urine'],
         'Common Cold': ['cough', 'sneezing', 'runny_nose'],
         'Pneumonia': ['cough', 'chest_pain', 'high_fever'],
+        'Migraine': ['headache', 'nausea', 'vomiting'],
+        'Arthritis': ['joint_pain', 'stiff_neck', 'swelling_joints'],
     }
     
     best_match = None
@@ -48,7 +46,6 @@ def predict_disease_lightweight(symptoms):
 def get_disease_info_lightweight(disease):
     """Lightweight disease info lookup - uses CSV parsing without pandas"""
     try:
-        import csv
         base_dir = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
         datasets_path = os.path.join(base_dir, 'datasets')
         
@@ -60,48 +57,61 @@ def get_disease_info_lightweight(disease):
             'workout': ['Rest until recovered']
         }
         
+        # Use CSV module instead of pandas (lightweight)
         try:
             desc_path = os.path.join(datasets_path, 'description.csv')
             if os.path.exists(desc_path):
-                df = pd.read_csv(desc_path)
-                desc_row = df[df['Disease'] == disease]
-                if not desc_row.empty:
-                    info['description'] = desc_row['Description'].values[0]
+                with open(desc_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('Disease', '').strip() == disease:
+                            info['description'] = row.get('Description', info['description'])
+                            break
         except:
             pass
         
         try:
             prec_path = os.path.join(datasets_path, 'precautions_df.csv')
             if os.path.exists(prec_path):
-                df = pd.read_csv(prec_path)
-                prec_row = df[df['Disease'] == disease]
-                if not prec_row.empty:
-                    precautions = []
-                    for col in df.columns:
-                        if col.startswith('Precaution_') and pd.notna(prec_row[col].values[0]):
-                            precautions.append(str(prec_row[col].values[0]))
-                    if precautions:
-                        info['precautions'] = precautions
+                with open(prec_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('Disease', '').strip() == disease:
+                            precautions = []
+                            for key, value in row.items():
+                                if key.startswith('Precaution_') and value and value.strip():
+                                    precautions.append(value.strip())
+                            if precautions:
+                                info['precautions'] = precautions
+                            break
         except:
             pass
         
         try:
             med_path = os.path.join(datasets_path, 'medications.csv')
             if os.path.exists(med_path):
-                df = pd.read_csv(med_path)
-                med_row = df[df['Disease'] == disease]
-                if not med_row.empty:
-                    info['medications'] = med_row['Medication'].tolist()
+                with open(med_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('Disease', '').strip() == disease:
+                            med = row.get('Medication', '').strip()
+                            if med:
+                                info['medications'] = [med]
+                            break
         except:
             pass
         
         try:
             diet_path = os.path.join(datasets_path, 'diets.csv')
             if os.path.exists(diet_path):
-                df = pd.read_csv(diet_path)
-                diet_row = df[df['Disease'] == disease]
-                if not diet_row.empty:
-                    info['diet'] = diet_row['Diet'].tolist()
+                with open(diet_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get('Disease', '').strip() == disease:
+                            diet = row.get('Diet', '').strip()
+                            if diet:
+                                info['diet'] = [diet]
+                            break
         except:
             pass
         
@@ -109,24 +119,15 @@ def get_disease_info_lightweight(disease):
     except:
         return 'Consult a healthcare professional.', ['Consult a doctor'], ['Consult a doctor'], ['Consult a doctor'], ['Consult a doctor']
 
-# Try to use full ML model, fallback to lightweight
+# Use lightweight prediction only (avoids heavy ML dependencies)
 def get_predicted_value(symptoms):
-    """Try ML model, fallback to rule-based"""
-    try:
-        from main import get_predicted_value as _get_predicted_value
-        return _get_predicted_value(symptoms)
-    except (ImportError, MemoryError, OSError, Exception) as e:
-        # Fallback to lightweight prediction
-        predicted = predict_disease_lightweight(symptoms)
-        return predicted, 0.85, 'rule_based', {}
+    """Use lightweight rule-based prediction (no heavy ML models)"""
+    predicted = predict_disease_lightweight(symptoms)
+    return predicted, 0.85, 'rule_based', {}
 
 def helper(disease):
-    """Try full helper, fallback to lightweight"""
-    try:
-        from main import helper as _helper
-        return _helper(disease)
-    except (ImportError, MemoryError, OSError, Exception):
-        return get_disease_info_lightweight(disease)
+    """Use lightweight helper (no pandas dependency)"""
+    return get_disease_info_lightweight(disease)
 
 def handler(request):
     """Vercel serverless function handler"""
@@ -180,7 +181,7 @@ def handler(request):
                 'body': json.dumps({'error': 'Please enter at least one symptom'})
             }
         
-        # Get prediction (tries ML, falls back to rule-based)
+        # Get prediction (lightweight rule-based)
         predicted_disease, confidence, method, individual_predictions = get_predicted_value(symptoms_list)
         
         if method == 'error':
@@ -223,7 +224,6 @@ def handler(request):
         }
         
     except Exception as e:
-        import traceback
         return {
             'statusCode': 500,
             'headers': {
