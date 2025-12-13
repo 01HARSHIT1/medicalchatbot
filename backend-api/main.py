@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 import numpy as np
 import pickle
@@ -23,7 +24,16 @@ warnings.filterwarnings('ignore')
 
 app = Flask(__name__)
 
-# Enable CORS manually
+# Enable CORS with flask-cors (more reliable)
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# Also add manual CORS headers as backup
 @app.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -320,8 +330,11 @@ def predict():
             return jsonify({'error': 'An error occurred during prediction'}), 500
         return render_template('index.html', error="An error occurred during prediction")
 
-@app.route('/check_disease', methods=['POST'])
+@app.route('/check_disease', methods=['POST', 'OPTIONS'])
 def check_disease():
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
     try:
         # Support both JSON and form data
         if request.is_json:

@@ -45,6 +45,10 @@ const Logo1 = () => {
                        ? "http://localhost:5000" 
                        : null);
       
+      // Debug: Log the API URL (remove in production if needed)
+      console.log("API URL:", apiUrl);
+      console.log("VITE_API_URL env var:", import.meta.env.VITE_API_URL);
+      
       // No need to check for production - Vercel serverless functions work automatically
       // Only show error if explicitly configured external URL fails
       const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
