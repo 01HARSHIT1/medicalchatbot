@@ -11,7 +11,11 @@ backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
 if os.path.exists(backend_path):
     sys.path.insert(0, backend_path)
 
-from main import load_dataset
+try:
+    from main import load_dataset
+except ImportError:
+    def load_dataset(filename):
+        raise FileNotFoundError(f"Dataset not found: {filename}")
 
 def handler(request):
     """Vercel serverless function handler"""
