@@ -28,6 +28,7 @@ def load_disease_symptoms(disease_name):
     
     return list(all_symptoms)
 
+# Vercel serverless function handler
 def handler(request):
     """Vercel serverless function handler"""
     # Handle CORS preflight
@@ -53,13 +54,30 @@ def handler(request):
         }
     
     try:
-        # Get request body
-        if hasattr(request, 'json'):
+        # Get request body - Vercel Python format
+        body = {}
+        
+        # Try different ways to get the body
+        if hasattr(request, 'json') and request.json:
             body = request.json
         elif hasattr(request, 'body'):
-            body = json.loads(request.body) if isinstance(request.body, str) else request.body
-        else:
-            body = {}
+            if isinstance(request.body, str):
+                try:
+                    body = json.loads(request.body)
+                except:
+                    body = {}
+            elif isinstance(request.body, dict):
+                body = request.body
+            elif hasattr(request.body, 'read'):
+                try:
+                    body_str = request.body.read()
+                    if isinstance(body_str, bytes):
+                        body_str = body_str.decode('utf-8')
+                    body = json.loads(body_str)
+                except:
+                    body = {}
+        elif hasattr(request, 'get_json'):
+            body = request.get_json() or {}
         
         disease_name = body.get('disease_name', '').strip()
         
@@ -100,11 +118,15 @@ def handler(request):
         }
         
     except Exception as e:
+        import traceback
+        error_details = str(e)
+        error_trace = traceback.format_exc()
+        print(f"Error in check_disease handler: {error_details}")
         return {
             'statusCode': 500,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
             },
-            'body': json.dumps({'error': f'An error occurred: {str(e)}'})
+            'body': json.dumps({'error': f'An error occurred: {error_details}'})
         }
