@@ -9,9 +9,11 @@
     "api/*.py": {
       "maxDuration": 30,
       "memory": 3008,
-      "runtime": "python3.9"
+      "runtime": "python3.9",
+      "includeFiles": "backend-api/datasets/**"
     }
   },
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "installCommand": "npm install"
 }

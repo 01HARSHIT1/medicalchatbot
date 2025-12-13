@@ -1,4 +1,5 @@
-# Ignore large files from serverless functions
+# Ignore everything except what's needed for serverless functions
+requirements-backend-only.txt
 backend-api/models/*.pkl
 backend-api/models/improved_enhanced_models.pkl
 backend-api/models/hybrid_model_v5.pkl
@@ -8,6 +9,7 @@ backend-api/models/improved_model_v5_simple.pkl
 backend-api/models/improved_model.pkl
 backend-api/models/perfect_model.pkl
 backend-api/models/improved_enhanced_model.py
+backend-api/main.py
 node_modules/
 dist/
 .vscode/
@@ -20,4 +22,8 @@ __pycache__/
 env/
 venv/
 .venv/
-
+SaveBackUpProjectAML/
+run*.py
+launch*.py
+*.bat
+*.sh
