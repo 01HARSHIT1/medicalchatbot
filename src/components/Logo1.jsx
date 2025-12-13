@@ -39,8 +39,11 @@ const Logo1 = () => {
       // Clean and split symptoms
       const symptoms = transcription.split(",").map(s => s.trim()).filter(s => s);
       
-      // Get API URL - use Vercel serverless functions if no external URL is set
-      const apiUrl = import.meta.env.VITE_API_URL || (window.location.origin + "/api");
+      // Get API URL - prioritize environment variable, then localhost for local dev
+      const apiUrl = import.meta.env.VITE_API_URL || 
+                     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                       ? "http://localhost:5000" 
+                       : window.location.origin + "/api");
       
       // No need to check for production - Vercel serverless functions work automatically
       // Only show error if explicitly configured external URL fails
