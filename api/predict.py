@@ -136,13 +136,22 @@ def load_disease_info(disease_name):
     
     return info
 
-# Vercel serverless function handler - Correct format
+# Vercel serverless function handler
 def handler(request):
     """Vercel serverless function handler"""
     try:
-        # Handle CORS preflight
-        method = request.method if hasattr(request, 'method') else request.get('method', 'GET')
+        # Get method - handle both object and dict-like access
+        method = None
+        if hasattr(request, 'method'):
+            method = request.method
+        elif isinstance(request, dict):
+            method = request.get('method', 'GET')
+        elif hasattr(request, 'get'):
+            method = request.get('method', 'GET')
+        else:
+            method = 'GET'
         
+        # Handle CORS preflight
         if method == 'OPTIONS':
             return {
                 'statusCode': 200,
@@ -165,57 +174,47 @@ def handler(request):
                 'body': json.dumps({'error': 'Method not allowed'})
             }
         
-        # Get request body - Handle Vercel's request format
+        # Get request body - Handle all possible Vercel formats
         body = {}
+        body_str = None
         
-        # Vercel Python functions receive request as dict-like object
+        # Try dict-like access first (Vercel Python format)
         if isinstance(request, dict):
-            # Direct dict access
             body_str = request.get('body', '{}')
+        elif hasattr(request, 'get'):
+            body_str = request.get('body', '{}')
+        elif hasattr(request, 'body'):
+            body_str = request.body
+        elif hasattr(request, 'json') and request.json:
+            body = request.json
+            body_str = None  # Already parsed
+        
+        # Parse body string if we got one
+        if body_str is not None:
             if isinstance(body_str, str):
                 try:
                     body = json.loads(body_str)
-                except:
+                except json.JSONDecodeError:
                     body = {}
             elif isinstance(body_str, dict):
                 body = body_str
-        elif hasattr(request, 'json') and request.json:
-            body = request.json
-        elif hasattr(request, 'body'):
-            if isinstance(request.body, str):
+            elif hasattr(body_str, 'read'):
                 try:
-                    body = json.loads(request.body)
+                    content = body_str.read()
+                    if isinstance(content, bytes):
+                        content = content.decode('utf-8')
+                    body = json.loads(content)
                 except:
                     body = {}
-            elif isinstance(request.body, dict):
-                body = request.body
-            elif hasattr(request.body, 'read'):
-                try:
-                    body_str = request.body.read()
-                    if isinstance(body_str, bytes):
-                        body_str = body_str.decode('utf-8')
-                    body = json.loads(body_str)
-                except:
-                    body = {}
-        elif hasattr(request, 'get_json'):
-            body = request.get_json() or {}
-        elif hasattr(request, 'get'):
-            # Dict-like access
-            body_str = request.get('body', '{}')
+        
+        # If still no body, try get_json
+        if not body and hasattr(request, 'get_json'):
             try:
-                body = json.loads(body_str) if isinstance(body_str, str) else body_str
+                body = request.get_json() or {}
             except:
                 body = {}
         
-        # If body is still empty, try to get from request directly
-        if not body:
-            try:
-                # Try to access as dict
-                if hasattr(request, '__getitem__'):
-                    body = dict(request) if request else {}
-            except:
-                pass
-        
+        # Extract symptoms
         symptoms_input = body.get('symptoms', [])
         
         # Process symptoms
@@ -269,10 +268,12 @@ def handler(request):
         import traceback
         error_details = str(e)
         error_trace = traceback.format_exc()
-        print(f"Error in predict handler: {error_details}")
-        print(f"Traceback: {error_trace}")
-        print(f"Request type: {type(request)}")
-        print(f"Request attributes: {dir(request) if hasattr(request, '__dict__') else 'N/A'}")
+        
+        # Log error details
+        print(f"ERROR in predict handler:")
+        print(f"  Error: {error_details}")
+        print(f"  Request type: {type(request)}")
+        print(f"  Request repr: {repr(request)[:200]}")
         
         return {
             'statusCode': 500,
@@ -281,7 +282,7 @@ def handler(request):
                 'Content-Type': 'application/json'
             },
             'body': json.dumps({
-                'error': f'An error occurred: {error_details}',
-                'type': str(type(request).__name__)
+                'error': f'Server error: {error_details}',
+                'message': 'Please check the server logs for more details'
             })
         }
