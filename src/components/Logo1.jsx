@@ -39,13 +39,15 @@ const Logo1 = () => {
       // Clean and split symptoms
       const symptoms = transcription.split(",").map(s => s.trim()).filter(s => s);
       
-      // Get API URL from environment or use default
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      // Get API URL - use Vercel serverless functions if no external URL is set
+      const apiUrl = import.meta.env.VITE_API_URL || (window.location.origin + "/api");
       
-      // Check if we're in production and no API URL is configured
+      // No need to check for production - Vercel serverless functions work automatically
+      // Only show error if explicitly configured external URL fails
       const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const usingExternalApi = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== (window.location.origin + "/api");
       
-      if (isProduction && !import.meta.env.VITE_API_URL) {
+      if (isProduction && usingExternalApi && !import.meta.env.VITE_API_URL) {
         setError(
           <div style={{textAlign: 'left', lineHeight: '1.8'}}>
             <h4 style={{color: '#ff6b6b', marginBottom: '15px'}}>🔧 Backend API Configuration Required</h4>
