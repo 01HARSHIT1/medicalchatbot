@@ -15,6 +15,8 @@ def analyze_image_properties(image_base64):
         
         # Get image size
         image_size = len(image_data)
+        image_size_kb = image_size / 1024
+        image_size_mb = image_size_kb / 1024
         
         # Try to determine image type from header
         image_type = "unknown"
@@ -29,68 +31,115 @@ def analyze_image_properties(image_base64):
         elif image_data[:4] == b'RIFF' and image_data[8:12] == b'WEBP':
             image_type = "WEBP"
         
-        # Estimate dimensions (rough approximation based on file size)
+        # Estimate dimensions (rough approximation based on file size and type)
         # This is a simple heuristic - not accurate but gives some variation
-        if image_size < 50000:
-            estimated_size = "small"
-        elif image_size < 200000:
-            estimated_size = "medium"
-        elif image_size < 1000000:
-            estimated_size = "large"
+        if image_type == "JPEG":
+            # JPEG compression varies, but we can estimate
+            if image_size < 50000:
+                estimated_size = "small"
+                estimated_resolution = "low resolution"
+            elif image_size < 200000:
+                estimated_size = "medium"
+                estimated_resolution = "medium resolution"
+            elif image_size < 1000000:
+                estimated_size = "large"
+                estimated_resolution = "high resolution"
+            else:
+                estimated_size = "very large"
+                estimated_resolution = "very high resolution"
+        elif image_type == "PNG":
+            # PNG is usually larger for same quality
+            if image_size < 100000:
+                estimated_size = "small"
+                estimated_resolution = "low resolution"
+            elif image_size < 500000:
+                estimated_size = "medium"
+                estimated_resolution = "medium resolution"
+            elif image_size < 2000000:
+                estimated_size = "large"
+                estimated_resolution = "high resolution"
+            else:
+                estimated_size = "very large"
+                estimated_resolution = "very high resolution"
         else:
-            estimated_size = "very large"
+            estimated_size = "medium"
+            estimated_resolution = "standard resolution"
+        
+        # Analyze color complexity (rough estimate based on file size vs type)
+        if image_type in ["JPEG", "PNG"]:
+            if image_size > 500000:
+                complexity = "detailed"
+            elif image_size > 100000:
+                complexity = "moderately detailed"
+            else:
+                complexity = "simple"
+        else:
+            complexity = "standard"
         
         return {
             'type': image_type,
             'size': estimated_size,
-            'file_size': image_size
+            'resolution': estimated_resolution,
+            'complexity': complexity,
+            'file_size': image_size,
+            'file_size_kb': image_size_kb,
+            'file_size_mb': image_size_mb
         }
     except Exception as e:
         print(f"Error analyzing image: {e}")
         return {
             'type': 'unknown',
             'size': 'unknown',
-            'file_size': 0
+            'resolution': 'unknown',
+            'complexity': 'unknown',
+            'file_size': 0,
+            'file_size_kb': 0,
+            'file_size_mb': 0
         }
 
 def generate_caption_from_properties(properties):
-    """Generate a caption based on image properties"""
+    """Generate a detailed caption based on image properties"""
     image_type = properties.get('type', 'unknown')
     size = properties.get('size', 'unknown')
+    resolution = properties.get('resolution', 'unknown')
+    complexity = properties.get('complexity', 'unknown')
+    file_size_kb = properties.get('file_size_kb', 0)
+    file_size_mb = properties.get('file_size_mb', 0)
     
-    # Generate contextual captions based on properties
-    captions = []
+    # Build caption parts
+    caption_parts = []
     
-    # Based on image type
-    if image_type == "JPEG":
-        captions.append("A JPEG photograph")
-    elif image_type == "PNG":
-        captions.append("A PNG image")
-    elif image_type == "GIF":
-        captions.append("A GIF image")
-    else:
-        captions.append("An image")
+    # Image type description
+    type_descriptions = {
+        'JPEG': 'A JPEG photograph',
+        'PNG': 'A PNG image',
+        'GIF': 'A GIF image',
+        'BMP': 'A BMP image',
+        'WEBP': 'A WebP image'
+    }
+    caption_parts.append(type_descriptions.get(image_type, 'An image'))
     
-    # Based on size
-    if size == "small":
-        captions.append("with compact dimensions")
-    elif size == "large":
-        captions.append("with high resolution")
-    elif size == "very large":
-        captions.append("with very high resolution")
+    # Size and resolution
+    if resolution != 'unknown':
+        caption_parts.append(f"with {resolution}")
     
-    # Combine into a caption
-    base_caption = " ".join(captions)
+    # Complexity
+    if complexity != 'unknown':
+        caption_parts.append(f"and {complexity} content")
     
-    # Add contextual information
-    file_size_kb = properties.get('file_size', 0) / 1024
-    if file_size_kb > 0:
-        base_caption += f" (approximately {file_size_kb:.1f} KB)"
+    # File size
+    if file_size_mb >= 1:
+        caption_parts.append(f"(file size: {file_size_mb:.2f} MB)")
+    elif file_size_kb >= 1:
+        caption_parts.append(f"(file size: {file_size_kb:.1f} KB)")
     
-    # Add helpful note
-    base_caption += ". For detailed image analysis and ML-based captioning, consider integrating with advanced image recognition services."
+    # Combine into caption
+    caption = " ".join(caption_parts)
     
-    return base_caption
+    # Add contextual note
+    caption += ". This is a basic image analysis. For detailed ML-based captioning with object detection and scene understanding, consider integrating with advanced image recognition services like Google Vision API or AWS Rekognition."
+    
+    return caption
 
 def describe_image_simple(image_base64):
     """Analyze image and generate a description"""
