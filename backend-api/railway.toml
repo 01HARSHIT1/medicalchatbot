@@ -1,9 +1,6 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["**/*.py", "requirements.txt"]
 
 [deploy]
 startCommand = "python main.py"
-healthcheckPath = "/"
-healthcheckTimeout = 100
