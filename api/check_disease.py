@@ -31,34 +31,46 @@ def load_disease_symptoms(disease_name):
 # Vercel serverless function handler
 def handler(request):
     """Vercel serverless function handler"""
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            'body': ''
-        }
-    
-    if request.method != 'POST':
-        return {
-            'statusCode': 405,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({'error': 'Method not allowed'})
-        }
-    
     try:
-        # Get request body - Vercel Python format
+        # Handle CORS preflight
+        method = request.method if hasattr(request, 'method') else request.get('method', 'GET')
+        
+        if method == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                },
+                'body': ''
+            }
+        
+        if method != 'POST':
+            return {
+                'statusCode': 405,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({'error': 'Method not allowed'})
+            }
+        
+        # Get request body - Handle Vercel's request format
         body = {}
         
-        # Try different ways to get the body
-        if hasattr(request, 'json') and request.json:
+        # Vercel Python functions receive request as dict-like object
+        if isinstance(request, dict):
+            # Direct dict access
+            body_str = request.get('body', '{}')
+            if isinstance(body_str, str):
+                try:
+                    body = json.loads(body_str)
+                except:
+                    body = {}
+            elif isinstance(body_str, dict):
+                body = body_str
+        elif hasattr(request, 'json') and request.json:
             body = request.json
         elif hasattr(request, 'body'):
             if isinstance(request.body, str):
@@ -78,6 +90,13 @@ def handler(request):
                     body = {}
         elif hasattr(request, 'get_json'):
             body = request.get_json() or {}
+        elif hasattr(request, 'get'):
+            # Dict-like access
+            body_str = request.get('body', '{}')
+            try:
+                body = json.loads(body_str) if isinstance(body_str, str) else body_str
+            except:
+                body = {}
         
         disease_name = body.get('disease_name', '').strip()
         
@@ -122,6 +141,8 @@ def handler(request):
         error_details = str(e)
         error_trace = traceback.format_exc()
         print(f"Error in check_disease handler: {error_details}")
+        print(f"Traceback: {error_trace}")
+        
         return {
             'statusCode': 500,
             'headers': {

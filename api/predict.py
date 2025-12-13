@@ -78,7 +78,8 @@ def load_disease_info(disease_name):
                     if row.get('Disease', '').strip() == disease_name:
                         info['description'] = row.get('Description', info['description'])
                         break
-    except Exception:
+    except Exception as e:
+        print(f"Error loading description: {e}")
         pass
     
     # Try to load from precautions_df.csv
@@ -97,7 +98,8 @@ def load_disease_info(disease_name):
                         if precautions:
                             info['precautions'] = precautions
                         break
-    except Exception:
+    except Exception as e:
+        print(f"Error loading precautions: {e}")
         pass
     
     # Try to load from medications.csv
@@ -112,7 +114,8 @@ def load_disease_info(disease_name):
                         if med:
                             info['medications'] = [med]
                         break
-    except Exception:
+    except Exception as e:
+        print(f"Error loading medications: {e}")
         pass
     
     # Try to load from diets.csv
@@ -127,49 +130,91 @@ def load_disease_info(disease_name):
                         if diet:
                             info['diet'] = [diet]
                         break
-    except Exception:
+    except Exception as e:
+        print(f"Error loading diets: {e}")
         pass
     
     return info
 
-# Vercel serverless function handler
+# Vercel serverless function handler - Correct format
 def handler(request):
     """Vercel serverless function handler"""
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            'body': ''
-        }
-    
-    # Only allow POST
-    if request.method != 'POST':
-        return {
-            'statusCode': 405,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({'error': 'Method not allowed'})
-        }
-    
     try:
-        # Get request body - Vercel format
+        # Handle CORS preflight
+        method = request.method if hasattr(request, 'method') else request.get('method', 'GET')
+        
+        if method == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                },
+                'body': ''
+            }
+        
+        # Only allow POST
+        if method != 'POST':
+            return {
+                'statusCode': 405,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({'error': 'Method not allowed'})
+            }
+        
+        # Get request body - Handle Vercel's request format
         body = {}
-        if hasattr(request, 'json') and request.json:
+        
+        # Vercel Python functions receive request as dict-like object
+        if isinstance(request, dict):
+            # Direct dict access
+            body_str = request.get('body', '{}')
+            if isinstance(body_str, str):
+                try:
+                    body = json.loads(body_str)
+                except:
+                    body = {}
+            elif isinstance(body_str, dict):
+                body = body_str
+        elif hasattr(request, 'json') and request.json:
             body = request.json
         elif hasattr(request, 'body'):
             if isinstance(request.body, str):
-                body = json.loads(request.body)
+                try:
+                    body = json.loads(request.body)
+                except:
+                    body = {}
             elif isinstance(request.body, dict):
                 body = request.body
             elif hasattr(request.body, 'read'):
-                body = json.loads(request.body.read())
+                try:
+                    body_str = request.body.read()
+                    if isinstance(body_str, bytes):
+                        body_str = body_str.decode('utf-8')
+                    body = json.loads(body_str)
+                except:
+                    body = {}
+        elif hasattr(request, 'get_json'):
+            body = request.get_json() or {}
+        elif hasattr(request, 'get'):
+            # Dict-like access
+            body_str = request.get('body', '{}')
+            try:
+                body = json.loads(body_str) if isinstance(body_str, str) else body_str
+            except:
+                body = {}
+        
+        # If body is still empty, try to get from request directly
+        if not body:
+            try:
+                # Try to access as dict
+                if hasattr(request, '__getitem__'):
+                    body = dict(request) if request else {}
+            except:
+                pass
         
         symptoms_input = body.get('symptoms', [])
         
@@ -223,11 +268,20 @@ def handler(request):
     except Exception as e:
         import traceback
         error_details = str(e)
+        error_trace = traceback.format_exc()
+        print(f"Error in predict handler: {error_details}")
+        print(f"Traceback: {error_trace}")
+        print(f"Request type: {type(request)}")
+        print(f"Request attributes: {dir(request) if hasattr(request, '__dict__') else 'N/A'}")
+        
         return {
             'statusCode': 500,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
             },
-            'body': json.dumps({'error': f'An error occurred: {error_details}'})
+            'body': json.dumps({
+                'error': f'An error occurred: {error_details}',
+                'type': str(type(request).__name__)
+            })
         }
