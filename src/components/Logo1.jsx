@@ -128,7 +128,17 @@ const Logo1 = () => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const apiUrl = import.meta.env.VITE_API_URL || 
+                     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                       ? "http://localhost:5000" 
+                       : null);
+      
+      if (!apiUrl) {
+        setError("API URL not configured. Please set VITE_API_URL in Vercel environment variables.");
+        setLoading(false);
+        return;
+      }
+      
       const response = await axios.post(`${apiUrl}/check_disease`, {
         disease_name: predictedDisease.predicted_disease,
       }, {
