@@ -25,7 +25,16 @@ def get_image_caption_from_hf(image_base64, model_url=None):
             import urllib.error
             
             # Decode base64 to get image bytes
-            image_bytes = base64.b64decode(image_base64)
+            try:
+                image_bytes = base64.b64decode(image_base64)
+            except Exception as e:
+                print(f"Error decoding base64: {e}")
+                continue
+            
+            # Verify we have image data
+            if not image_bytes or len(image_bytes) < 100:
+                print("Image data too small or empty")
+                continue
             
             # Create request to Hugging Face API
             req = urllib.request.Request(
@@ -39,8 +48,14 @@ def get_image_caption_from_hf(image_base64, model_url=None):
             
             # Make request with timeout
             try:
-                with urllib.request.urlopen(req, timeout=20) as response:
+                with urllib.request.urlopen(req, timeout=25) as response:
                     result_data = response.read().decode('utf-8')
+                    
+                    # Check if response is an error message
+                    if 'error' in result_data.lower() or 'loading' in result_data.lower():
+                        print(f"Model {api_url} returned error/loading: {result_data}")
+                        continue
+                    
                     result = json.loads(result_data)
                     
                     # Handle different response formats
@@ -50,18 +65,20 @@ def get_image_caption_from_hf(image_base64, model_url=None):
                     if isinstance(result, list) and len(result) > 0:
                         if isinstance(result[0], dict):
                             caption = result[0].get('generated_text') or result[0].get('caption')
+                        elif isinstance(result[0], str):
+                            caption = result[0]
                     
                     # Format 2: Dict with 'generated_text' or 'caption'
                     elif isinstance(result, dict):
                         caption = result.get('generated_text') or result.get('caption')
+                        # Also check for nested structures
+                        if not caption and 'result' in result:
+                            if isinstance(result['result'], list) and len(result['result']) > 0:
+                                caption = result['result'][0].get('generated_text') or result['result'][0].get('caption')
                     
                     # Format 3: Direct string
                     elif isinstance(result, str):
                         caption = result
-                    
-                    # Format 4: List of strings
-                    elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], str):
-                        caption = result[0]
                     
                     if caption:
                         # Clean up the caption
@@ -69,16 +86,22 @@ def get_image_caption_from_hf(image_base64, model_url=None):
                         # Remove any unwanted prefixes
                         if caption.lower().startswith('caption:'):
                             caption = caption[8:].strip()
+                        # Remove quotes if present
+                        caption = caption.strip('"').strip("'")
                         # Capitalize first letter
                         if caption:
                             caption = caption[0].upper() + caption[1:] if len(caption) > 1 else caption.upper()
+                        print(f"Successfully got caption from {api_url}: {caption}")
                         return caption
                     
                     # If we got a response but no caption, log it
                     print(f"Unexpected response format from {api_url}: {result}")
                     
             except urllib.error.HTTPError as e:
-                error_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
+                try:
+                    error_body = e.read().decode('utf-8')
+                except:
+                    error_body = str(e)
                 print(f"Hugging Face API error ({api_url}): {e.code} - {error_body}")
                 
                 # If model is loading (503), try next model
@@ -97,15 +120,24 @@ def get_image_caption_from_hf(image_base64, model_url=None):
                 print(f"URL error for {api_url}: {e}")
                 continue
                 
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error for {api_url}: {e}")
+                continue
+                
             except Exception as e:
                 print(f"Error calling Hugging Face API ({api_url}): {e}")
+                import traceback
+                print(f"Traceback: {traceback.format_exc()}")
                 continue
                 
         except Exception as e:
             print(f"Error in get_image_caption_from_hf for {api_url}: {e}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             continue
     
     # If all models failed, return None
+    print("All Hugging Face models failed")
     return None
 
 def describe_image_simple(image_base64):
@@ -118,17 +150,17 @@ def describe_image_simple(image_base64):
         print("Attempting to get caption from Hugging Face API...")
         caption = get_image_caption_from_hf(image_base64)
         
-        if caption and caption.strip():
+        if caption and caption.strip() and len(caption.strip()) > 10:
             print(f"Successfully got caption: {caption}")
             return caption
         
         # If API failed, try one more time with a different approach
         print("First attempt failed, retrying with alternative model...")
-        caption = get_image_caption_from_hf(image_base64, HUGGINGFACE_MODELS[1] if len(HUGGINGFACE_MODELS) > 1 else None)
-        
-        if caption and caption.strip():
-            print(f"Successfully got caption on retry: {caption}")
-            return caption
+        if len(HUGGINGFACE_MODELS) > 1:
+            caption = get_image_caption_from_hf(image_base64, HUGGINGFACE_MODELS[1])
+            if caption and caption.strip() and len(caption.strip()) > 10:
+                print(f"Successfully got caption on retry: {caption}")
+                return caption
         
         # If still failed, return a helpful message
         print("All Hugging Face API attempts failed")
