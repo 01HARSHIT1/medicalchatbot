@@ -1,1 +1,2 @@
-3.9
+# This file prevents Vercel from auto-installing Python dependencies
+# Vercel will see this but won't install anything if requirements.txt doesn't exist

@@ -1,3 +1,2 @@
-# This file intentionally left empty
+# Empty - No dependencies
 # Serverless functions use pure Python standard library only
-# No external dependencies needed: json, csv, os, sys are built-in

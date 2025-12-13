@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/remove-requirements.js && vite build",
+    "preinstall": "node scripts/remove-requirements.js || true",
     "preview": "vite preview",
     "lint": "eslint ."
   },

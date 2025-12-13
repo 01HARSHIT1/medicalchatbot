@@ -1,5 +1,8 @@
-# Ignore everything except what's needed for serverless functions
+# Ignore requirements.txt files to prevent Python dependency installation
+requirements.txt
 requirements-backend-only.txt
+
+# Ignore everything except what's needed for serverless functions
 backend-api/models/*.pkl
 backend-api/models/improved_enhanced_models.pkl
 backend-api/models/hybrid_model_v5.pkl
@@ -27,5 +30,4 @@ run*.py
 launch*.py
 *.bat
 *.sh
-requirements-backend-only.txt
 *.pkl
