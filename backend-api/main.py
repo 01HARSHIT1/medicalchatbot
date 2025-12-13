@@ -22,15 +22,7 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
-# Set template and static folder paths
-template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-static_dir = os.path.join(os.path.dirname(__file__), 'static')
-
-# Create directories if they don't exist
-os.makedirs(template_dir, exist_ok=True)
-os.makedirs(static_dir, exist_ok=True)
-
-app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+app = Flask(__name__)
 
 # Enable CORS with flask-cors (more reliable)
 CORS(app, resources={
