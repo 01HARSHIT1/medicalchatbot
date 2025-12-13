@@ -1,0 +1,15 @@
+# Nixpacks configuration to prevent Python dependency installation
+# This tells Vercel/Nixpacks to skip Python if no valid requirements.txt exists
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
+
+[phases.install]
+cmds = [
+  "rm -f requirements.txt requirements-backend-only.txt 2>/dev/null || true",
+  "npm install"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+

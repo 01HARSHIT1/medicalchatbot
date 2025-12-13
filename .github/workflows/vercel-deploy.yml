@@ -1,0 +1,22 @@
+name: Vercel Deployment
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Remove requirements.txt
+        run: |
+          rm -f requirements.txt requirements-backend-only.txt || true
+          echo "# Empty" > requirements.txt || true
+        continue-on-error: true
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.ORG_ID }}
+          vercel-project-id: ${{ secrets.PROJECT_ID }}
+

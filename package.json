@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/remove-requirements.js && vite build",
-    "preinstall": "node scripts/remove-requirements.js || true",
+    "vercel-build": "rm -f requirements.txt requirements-backend-only.txt 2>/dev/null; npm run build",
     "preview": "vite preview",
     "lint": "eslint ."
   },
