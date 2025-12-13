@@ -1,15 +1,18 @@
 """
 Lightweight Vercel Serverless Function for Image Recognition
 Image content analysis and caption generation - Works entirely on Vercel
-Uses color analysis and pattern detection for descriptive captions
+Uses Hugging Face Inference API for real image captioning
 """
 import json
 import base64
 import os
 from http.server import BaseHTTPRequestHandler
 
+# Hugging Face Inference API endpoint (free, no API key needed for public models)
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base"
+
 def analyze_image_colors(image_base64):
-    """Analyze dominant colors and patterns from base64 image data"""
+    """Analyze dominant colors from base64 image data"""
     try:
         # Decode base64 to get image data
         image_data = base64.b64decode(image_base64)
@@ -75,7 +78,7 @@ def analyze_image_colors(image_base64):
         else:
             brightness_level = "very bright"
         
-        # Calculate color variance (for scene type detection)
+        # Calculate color variance
         color_variance = (
             (max(avg_red, avg_green, avg_blue) - min(avg_red, avg_green, avg_blue)) / 255
         )
@@ -105,7 +108,6 @@ def analyze_image_colors(image_base64):
 
 def generate_content_caption(properties, color_analysis):
     """Generate a descriptive caption based on image content analysis"""
-    image_type = properties.get('type', 'unknown')
     file_size_kb = properties.get('file_size_kb', 0)
     dominant_color = color_analysis.get('dominant_color', 'mixed')
     brightness = color_analysis.get('brightness', 'moderate')
@@ -118,7 +120,7 @@ def generate_content_caption(properties, color_analysis):
     # Build descriptive caption based on color and properties
     caption_parts = []
     
-    # Color-based scene descriptions with more variety
+    # Color-based scene descriptions with more variety and natural language
     scene_descriptions = []
     
     if dominant_color == "blue":
@@ -126,18 +128,20 @@ def generate_content_caption(properties, color_analysis):
             if avg_blue > 180:
                 scene_descriptions = [
                     "a beautiful bright blue sky",
-                    "a clear blue sky scene",
-                    "a serene blue sky with clouds",
-                    "a bright blue sky landscape",
-                    "a clear blue sky during daytime"
+                    "a clear blue sky with clouds",
+                    "a serene blue sky scene",
+                    "a bright blue sky during the day",
+                    "a clear blue sky landscape",
+                    "a beautiful blue sky view"
                 ]
             else:
                 scene_descriptions = [
-                    "a bright blue water scene",
                     "a beautiful blue lake",
-                    "a serene blue ocean view",
-                    "a bright blue water landscape",
-                    "a clear blue water scene"
+                    "a serene blue water scene",
+                    "a calm blue ocean view",
+                    "a peaceful blue water landscape",
+                    "a clear blue water scene",
+                    "a nice lake with blue water"
                 ]
         elif brightness == "dark":
             scene_descriptions = [
@@ -162,7 +166,8 @@ def generate_content_caption(properties, color_analysis):
                 "a sunny green meadow",
                 "a bright green field",
                 "a vibrant green park scene",
-                "a lush green garden"
+                "a lush green garden",
+                "a nice green landscape"
             ]
         elif brightness == "dark":
             scene_descriptions = [
@@ -181,11 +186,12 @@ def generate_content_caption(properties, color_analysis):
     elif dominant_color == "red":
         if brightness == "very bright" or brightness == "bright":
             scene_descriptions = [
-                "a vibrant red sunset scene",
                 "a beautiful red sunset",
-                "a warm red-toned landscape",
-                "a bright red sunset sky",
-                "a colorful red sunset"
+                "a vibrant red sunset scene",
+                "a nice sunset with red colors",
+                "a warm red sunset sky",
+                "a colorful red sunset",
+                "a beautiful sunset over the horizon"
             ]
         elif brightness == "dark":
             scene_descriptions = [
@@ -228,7 +234,8 @@ def generate_content_caption(properties, color_analysis):
                     "a bright multi-colored scene",
                     "a sunny colorful view",
                     "a beautiful colorful landscape",
-                    "a vibrant outdoor scene"
+                    "a vibrant outdoor scene",
+                    "a nice colorful scene"
                 ]
             else:
                 scene_descriptions = [
