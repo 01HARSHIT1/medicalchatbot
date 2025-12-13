@@ -1,2 +1,3 @@
-# No dependencies needed - using pure Python standard library only
-# All functionality uses built-in modules: json, csv, os, sys
+# This file intentionally left empty
+# Serverless functions use pure Python standard library only
+# No external dependencies needed: json, csv, os, sys are built-in
