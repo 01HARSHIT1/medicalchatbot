@@ -22,7 +22,15 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
-app = Flask(__name__)
+# Set template and static folder paths
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+static_dir = os.path.join(os.path.dirname(__file__), 'static')
+
+# Create directories if they don't exist
+os.makedirs(template_dir, exist_ok=True)
+os.makedirs(static_dir, exist_ok=True)
+
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
 # Enable CORS with flask-cors (more reliable)
 CORS(app, resources={
@@ -287,17 +295,13 @@ def predict():
             symptoms_list = [symptom.strip() for symptom in user_symptoms.split(',') if symptom.strip()]
         
         if not symptoms_list:
-            if request.is_json:
-                return jsonify({'error': 'Please enter at least one symptom'}), 400
-            return render_template('index.html', error="Please enter at least one symptom")
+            return jsonify({'error': 'Please enter at least one symptom'}), 400
         
         # Get prediction using improved system
         predicted_disease, confidence, method, individual_predictions = get_predicted_value(symptoms_list)
         
         if method == 'error':
-            if request.is_json:
-                return jsonify({'error': f'Prediction error: {predicted_disease}'}), 500
-            return render_template('index.html', error=f"Prediction error: {predicted_disease}")
+            return jsonify({'error': f'Prediction error: {predicted_disease}'}), 500
         
         # Get disease information
         description, precautions, medications, diets, workouts = helper(predicted_disease)
@@ -326,9 +330,7 @@ def predict():
         
     except Exception as e:
         print(f"Error in predict route: {e}")
-        if request.is_json:
-            return jsonify({'error': 'An error occurred during prediction'}), 500
-        return render_template('index.html', error="An error occurred during prediction")
+        return jsonify({'error': 'An error occurred during prediction', 'details': str(e)}), 500
 
 @app.route('/check_disease', methods=['POST', 'OPTIONS'])
 def check_disease():
@@ -379,19 +381,18 @@ def check_disease():
 
 @app.route('/about')
 def about():
-    return render_template('about.html')
+    return jsonify({'message': 'About page - API only backend'})
 
 @app.route('/contact')
 def contact():
-    return render_template('contact.html')
+    return jsonify({'message': 'Contact page - API only backend'})
 
 @app.route('/chatbot')
 def chatbot():
-    # Get disease data from URL parameters
+    # API-only backend - return JSON
     disease_name = request.args.get('disease', '')
     disease_data = request.args.get('data', '')
     
-    # Parse the disease data if available
     parsed_data = {}
     if disease_data:
         try:
@@ -399,10 +400,11 @@ def chatbot():
         except:
             parsed_data = {}
     
-    # Pass the disease data to the chatbot template
-    return render_template('chatbot.html', 
-                         disease_name=disease_name, 
-                         disease_data=parsed_data)
+    return jsonify({
+        'disease_name': disease_name,
+        'disease_data': parsed_data,
+        'message': 'Chatbot endpoint - API only backend'
+    })
 
 if __name__ == '__main__':
     # Get port from environment variable (for Railway, Render, etc.)
