@@ -1,22 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/predict",
-      "destination": "/api/predict.py"
-    },
-    {
-      "source": "/api/check_disease",
-      "destination": "/api/check_disease.py"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/*.py": {
-      "runtime": "python3.9"
-    }
-  }
+  ]
 }
-
