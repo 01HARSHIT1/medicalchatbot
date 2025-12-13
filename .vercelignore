@@ -7,8 +7,17 @@ backend-api/models/improved_model_v4.pkl
 backend-api/models/improved_model_v5_simple.pkl
 backend-api/models/improved_model.pkl
 backend-api/models/perfect_model.pkl
+backend-api/models/improved_enhanced_model.py
 node_modules/
 dist/
 .vscode/
 .git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
 

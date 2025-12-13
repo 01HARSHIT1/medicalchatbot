@@ -1,21 +1,31 @@
 """
-Vercel Serverless Function for Disease Details
+Vercel Serverless Function for Disease Details - Lightweight version
 """
 import sys
 import os
 import json
-import pandas as pd
+import csv
 
 # Add backend-api to path
 backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
 if os.path.exists(backend_path):
     sys.path.insert(0, backend_path)
 
-try:
-    from main import load_dataset
-except ImportError:
-    def load_dataset(filename):
+def load_dataset_lightweight(filename):
+    """Lightweight CSV loader without pandas"""
+    base_dir = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
+    datasets_path = os.path.join(base_dir, 'datasets')
+    file_path = os.path.join(datasets_path, filename)
+    
+    if not os.path.exists(file_path):
         raise FileNotFoundError(f"Dataset not found: {filename}")
+    
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data.append(row)
+    return data
 
 def handler(request):
     """Vercel serverless function handler"""
@@ -61,28 +71,36 @@ def handler(request):
                 'body': json.dumps({'error': 'No disease name provided'})
             }
         
-        # Load symptoms dataset
-        symptoms_df = load_dataset('symtoms_df.csv')
-        disease_symptoms = symptoms_df[symptoms_df['Disease'] == disease_name]
-        
-        if disease_symptoms.empty:
+        # Load symptoms dataset (lightweight CSV parsing)
+        try:
+            symptoms_data = load_dataset_lightweight('symtoms_df.csv')
+            disease_symptoms = [row for row in symptoms_data if row.get('Disease', '').strip() == disease_name]
+            
+            if not disease_symptoms:
+                return {
+                    'statusCode': 404,
+                    'headers': {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    'body': json.dumps({'error': 'Disease not found'})
+                }
+            
+            # Extract all unique symptoms
+            all_symptoms = set()
+            for row in disease_symptoms:
+                for key, value in row.items():
+                    if key.startswith('Symptom_') and value and str(value).strip():
+                        all_symptoms.add(str(value).strip())
+        except Exception as e:
             return {
-                'statusCode': 404,
+                'statusCode': 500,
                 'headers': {
                     'Access-Control-Allow-Origin': '*',
                     'Content-Type': 'application/json'
                 },
-                'body': json.dumps({'error': 'Disease not found'})
+                'body': json.dumps({'error': f'Error loading dataset: {str(e)}'})
             }
-        
-        # Extract all unique symptoms
-        all_symptoms = set()
-        for _, row in disease_symptoms.iterrows():
-            symptom_cols = [col for col in row.index if col.startswith('Symptom_')]
-            for col in symptom_cols:
-                symptom = row[col]
-                if pd.notna(symptom) and str(symptom).strip():
-                    all_symptoms.add(str(symptom).strip())
         
         return {
             'statusCode': 200,

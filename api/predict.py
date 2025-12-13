@@ -46,9 +46,9 @@ def predict_disease_lightweight(symptoms):
     return best_match or 'Common Cold'
 
 def get_disease_info_lightweight(disease):
-    """Lightweight disease info lookup"""
+    """Lightweight disease info lookup - uses CSV parsing without pandas"""
     try:
-        import pandas as pd
+        import csv
         base_dir = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
         datasets_path = os.path.join(base_dir, 'datasets')
         
