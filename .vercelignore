@@ -1,3 +1,6 @@
+# Ignore Python serverless functions (moved to separate backend)
+api-disabled/
+
 # Ignore requirements.txt files to prevent Python dependency installation
 requirements.txt
 requirements-backend-only.txt
