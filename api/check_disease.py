@@ -5,6 +5,7 @@ Pure Python - No heavy dependencies
 import json
 import csv
 import os
+from http.server import BaseHTTPRequestHandler
 
 def load_disease_symptoms(disease_name):
     """Load all symptoms for a disease from CSV (lightweight)"""
@@ -28,126 +29,71 @@ def load_disease_symptoms(disease_name):
     
     return list(all_symptoms)
 
-# Vercel serverless function handler
-def handler(request):
-    """Vercel serverless function handler"""
-    try:
-        # Handle CORS preflight
-        method = request.method if hasattr(request, 'method') else request.get('method', 'GET')
-        
-        if method == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                },
-                'body': ''
-            }
-        
-        if method != 'POST':
-            return {
-                'statusCode': 405,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'Method not allowed'})
-            }
-        
-        # Get request body - Handle Vercel's request format
-        body = {}
-        
-        # Vercel Python functions receive request as dict-like object
-        if isinstance(request, dict):
-            # Direct dict access
-            body_str = request.get('body', '{}')
-            if isinstance(body_str, str):
-                try:
-                    body = json.loads(body_str)
-                except:
-                    body = {}
-            elif isinstance(body_str, dict):
-                body = body_str
-        elif hasattr(request, 'json') and request.json:
-            body = request.json
-        elif hasattr(request, 'body'):
-            if isinstance(request.body, str):
-                try:
-                    body = json.loads(request.body)
-                except:
-                    body = {}
-            elif isinstance(request.body, dict):
-                body = request.body
-            elif hasattr(request.body, 'read'):
-                try:
-                    body_str = request.body.read()
-                    if isinstance(body_str, bytes):
-                        body_str = body_str.decode('utf-8')
-                    body = json.loads(body_str)
-                except:
-                    body = {}
-        elif hasattr(request, 'get_json'):
-            body = request.get_json() or {}
-        elif hasattr(request, 'get'):
-            # Dict-like access
-            body_str = request.get('body', '{}')
+# Vercel serverless function handler - Correct format using BaseHTTPRequestHandler
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+    
+    def do_POST(self):
+        """Handle POST requests"""
+        try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            # Parse JSON body
             try:
-                body = json.loads(body_str) if isinstance(body_str, str) else body_str
-            except:
+                body = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError:
                 body = {}
-        
-        disease_name = body.get('disease_name', '').strip()
-        
-        if not disease_name:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'No disease name provided'})
-            }
-        
-        # Load symptoms
-        all_symptoms = load_disease_symptoms(disease_name)
-        
-        if not all_symptoms:
-            return {
-                'statusCode': 404,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'Disease not found'})
-            }
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
+            
+            disease_name = body.get('disease_name', '').strip()
+            
+            if not disease_name:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'No disease name provided'}).encode('utf-8'))
+                return
+            
+            # Load symptoms
+            all_symptoms = load_disease_symptoms(disease_name)
+            
+            if not all_symptoms:
+                self.send_response(404)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Disease not found'}).encode('utf-8'))
+                return
+            
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
                 'disease_name': disease_name,
                 'all_symptoms': all_symptoms,
                 'symptom_count': len(all_symptoms)
-            })
-        }
-        
-    except Exception as e:
-        import traceback
-        error_details = str(e)
-        error_trace = traceback.format_exc()
-        print(f"Error in check_disease handler: {error_details}")
-        print(f"Traceback: {error_trace}")
-        
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({'error': f'An error occurred: {error_details}'})
-        }
+            }).encode('utf-8'))
+            
+        except Exception as e:
+            import traceback
+            error_details = str(e)
+            print(f"ERROR in check_disease handler: {error_details}")
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'error': f'Server error: {error_details}'
+            }).encode('utf-8'))

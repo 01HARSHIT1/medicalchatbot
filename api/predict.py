@@ -5,6 +5,7 @@ Pure Python - No heavy dependencies - Works entirely on Vercel
 import json
 import csv
 import os
+from http.server import BaseHTTPRequestHandler
 
 # Lightweight disease prediction rules (no ML models needed)
 DISEASE_RULES = {
@@ -78,8 +79,7 @@ def load_disease_info(disease_name):
                     if row.get('Disease', '').strip() == disease_name:
                         info['description'] = row.get('Description', info['description'])
                         break
-    except Exception as e:
-        print(f"Error loading description: {e}")
+    except Exception:
         pass
     
     # Try to load from precautions_df.csv
@@ -98,8 +98,7 @@ def load_disease_info(disease_name):
                         if precautions:
                             info['precautions'] = precautions
                         break
-    except Exception as e:
-        print(f"Error loading precautions: {e}")
+    except Exception:
         pass
     
     # Try to load from medications.csv
@@ -114,8 +113,7 @@ def load_disease_info(disease_name):
                         if med:
                             info['medications'] = [med]
                         break
-    except Exception as e:
-        print(f"Error loading medications: {e}")
+    except Exception:
         pass
     
     # Try to load from diets.csv
@@ -130,159 +128,91 @@ def load_disease_info(disease_name):
                         if diet:
                             info['diet'] = [diet]
                         break
-    except Exception as e:
-        print(f"Error loading diets: {e}")
+    except Exception:
         pass
     
     return info
 
-# Vercel serverless function handler
-def handler(request):
-    """Vercel serverless function handler"""
-    try:
-        # Get method - handle both object and dict-like access
-        method = None
-        if hasattr(request, 'method'):
-            method = request.method
-        elif isinstance(request, dict):
-            method = request.get('method', 'GET')
-        elif hasattr(request, 'get'):
-            method = request.get('method', 'GET')
-        else:
-            method = 'GET'
-        
-        # Handle CORS preflight
-        if method == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                },
-                'body': ''
-            }
-        
-        # Only allow POST
-        if method != 'POST':
-            return {
-                'statusCode': 405,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'Method not allowed'})
-            }
-        
-        # Get request body - Handle all possible Vercel formats
-        body = {}
-        body_str = None
-        
-        # Try dict-like access first (Vercel Python format)
-        if isinstance(request, dict):
-            body_str = request.get('body', '{}')
-        elif hasattr(request, 'get'):
-            body_str = request.get('body', '{}')
-        elif hasattr(request, 'body'):
-            body_str = request.body
-        elif hasattr(request, 'json') and request.json:
-            body = request.json
-            body_str = None  # Already parsed
-        
-        # Parse body string if we got one
-        if body_str is not None:
-            if isinstance(body_str, str):
-                try:
-                    body = json.loads(body_str)
-                except json.JSONDecodeError:
-                    body = {}
-            elif isinstance(body_str, dict):
-                body = body_str
-            elif hasattr(body_str, 'read'):
-                try:
-                    content = body_str.read()
-                    if isinstance(content, bytes):
-                        content = content.decode('utf-8')
-                    body = json.loads(content)
-                except:
-                    body = {}
-        
-        # If still no body, try get_json
-        if not body and hasattr(request, 'get_json'):
+# Vercel serverless function handler - Correct format using BaseHTTPRequestHandler
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+    
+    def do_POST(self):
+        """Handle POST requests"""
+        try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            # Parse JSON body
             try:
-                body = request.get_json() or {}
-            except:
+                body = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError:
                 body = {}
-        
-        # Extract symptoms
-        symptoms_input = body.get('symptoms', [])
-        
-        # Process symptoms
-        if isinstance(symptoms_input, list):
-            symptoms_list = [str(s).strip() for s in symptoms_input if s and str(s).strip()]
-        else:
-            symptoms_list = [s.strip() for s in str(symptoms_input).split(',') if s.strip()]
-        
-        if not symptoms_list:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'Please enter at least one symptom'})
+            
+            # Extract symptoms
+            symptoms_input = body.get('symptoms', [])
+            
+            # Process symptoms
+            if isinstance(symptoms_input, list):
+                symptoms_list = [str(s).strip() for s in symptoms_input if s and str(s).strip()]
+            else:
+                symptoms_list = [s.strip() for s in str(symptoms_input).split(',') if s.strip()]
+            
+            if not symptoms_list:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Please enter at least one symptom'}).encode('utf-8'))
+                return
+            
+            # Get prediction
+            predicted_disease, confidence = predict_disease(symptoms_list)
+            
+            # Get disease information
+            disease_info = load_disease_info(predicted_disease)
+            
+            # Prepare result
+            result_data = {
+                'predicted_disease': predicted_disease,
+                'disease': predicted_disease,
+                'confidence': confidence,
+                'method': 'rule_based',
+                'symptoms': symptoms_list,
+                'description': disease_info['description'],
+                'precautions': disease_info['precautions'],
+                'medications': disease_info['medications'],
+                'diet': disease_info['diet'],
+                'workout': disease_info['workout'],
+                'diets': disease_info['diet'],
+                'workouts': disease_info['workout']
             }
-        
-        # Get prediction
-        predicted_disease, confidence = predict_disease(symptoms_list)
-        
-        # Get disease information
-        disease_info = load_disease_info(predicted_disease)
-        
-        # Prepare result
-        result_data = {
-            'predicted_disease': predicted_disease,
-            'disease': predicted_disease,
-            'confidence': confidence,
-            'method': 'rule_based',
-            'symptoms': symptoms_list,
-            'description': disease_info['description'],
-            'precautions': disease_info['precautions'],
-            'medications': disease_info['medications'],
-            'diet': disease_info['diet'],
-            'workout': disease_info['workout'],
-            'diets': disease_info['diet'],
-            'workouts': disease_info['workout']
-        }
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps(result_data)
-        }
-        
-    except Exception as e:
-        import traceback
-        error_details = str(e)
-        error_trace = traceback.format_exc()
-        
-        # Log error details
-        print(f"ERROR in predict handler:")
-        print(f"  Error: {error_details}")
-        print(f"  Request type: {type(request)}")
-        print(f"  Request repr: {repr(request)[:200]}")
-        
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
-                'error': f'Server error: {error_details}',
-                'message': 'Please check the server logs for more details'
-            })
-        }
+            
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(result_data).encode('utf-8'))
+            
+        except Exception as e:
+            import traceback
+            error_details = str(e)
+            error_trace = traceback.format_exc()
+            print(f"ERROR in predict handler: {error_details}")
+            print(f"Traceback: {error_trace}")
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'error': f'Server error: {error_details}'
+            }).encode('utf-8'))
