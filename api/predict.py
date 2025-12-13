@@ -132,6 +132,7 @@ def load_disease_info(disease_name):
     
     return info
 
+# Vercel serverless function handler
 def handler(request):
     """Vercel serverless function handler"""
     # Handle CORS preflight
@@ -158,13 +159,17 @@ def handler(request):
         }
     
     try:
-        # Get request body
-        if hasattr(request, 'json'):
+        # Get request body - Vercel format
+        body = {}
+        if hasattr(request, 'json') and request.json:
             body = request.json
         elif hasattr(request, 'body'):
-            body = json.loads(request.body) if isinstance(request.body, str) else request.body
-        else:
-            body = {}
+            if isinstance(request.body, str):
+                body = json.loads(request.body)
+            elif isinstance(request.body, dict):
+                body = request.body
+            elif hasattr(request.body, 'read'):
+                body = json.loads(request.body.read())
         
         symptoms_input = body.get('symptoms', [])
         
@@ -217,11 +222,12 @@ def handler(request):
         
     except Exception as e:
         import traceback
+        error_details = str(e)
         return {
             'statusCode': 500,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
             },
-            'body': json.dumps({'error': f'An error occurred: {str(e)}'})
+            'body': json.dumps({'error': f'An error occurred: {error_details}'})
         }
