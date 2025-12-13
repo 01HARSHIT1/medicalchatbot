@@ -277,7 +277,15 @@ def check_rules_applied(symptoms, predicted_disease):
 
 @app.route('/')
 def home():
-    return render_template('index.html', result=None)
+    # Return JSON response instead of template for API-only backend
+    return jsonify({
+        'status': 'success',
+        'message': 'Medical Prediction API is running',
+        'endpoints': {
+            '/predict': 'POST - Predict disease from symptoms',
+            '/check_disease': 'POST - Get disease details'
+        }
+    })
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -323,10 +331,8 @@ def predict():
             'individual_predictions': individual_predictions
         }
         
-        # Return JSON for API requests, template for form submissions
-        if request.is_json:
-            return jsonify(result_data)
-        return render_template('index.html', result=result_data)
+        # Return JSON response (API-only backend)
+        return jsonify(result_data)
         
     except Exception as e:
         print(f"Error in predict route: {e}")
