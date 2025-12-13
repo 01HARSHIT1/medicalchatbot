@@ -1,3 +1,2 @@
-# Lightweight requirements for Vercel serverless functions only
-# Heavy ML libraries are loaded lazily if needed, otherwise use rule-based prediction
-
+# No dependencies needed - using pure Python standard library only
+# All functionality uses built-in modules: json, csv, os, sys
