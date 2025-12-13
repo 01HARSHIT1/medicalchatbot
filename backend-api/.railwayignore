@@ -1,3 +1,5 @@
+# Ignore files that might trigger mise
+.python-version
 __pycache__/
 *.pyc
 *.pyo
@@ -6,7 +8,3 @@ __pycache__/
 env/
 venv/
 .venv/
-*.pkl
-node_modules/
-.git/
-
