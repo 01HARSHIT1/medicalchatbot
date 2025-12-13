@@ -1,9 +1,10 @@
 """
 Lightweight Vercel Serverless Function for Chatbot
-Simple chatbot responses - Can be enhanced with OpenAI API
+Simple chatbot responses - Works entirely on Vercel
 """
 import json
 import os
+from http.server import BaseHTTPRequestHandler
 
 # Simple response templates (can be enhanced with AI API)
 RESPONSES = {
@@ -33,82 +34,73 @@ def get_simple_response(user_input):
         return RESPONSES['greeting'][0]
     
     # Check for health-related queries
-    if any(word in user_lower for word in ['health', 'symptom', 'disease', 'medical', 'doctor', 'treatment']):
+    if any(word in user_lower for word in ['health', 'symptom', 'disease', 'medical', 'doctor', 'treatment', 'pain', 'fever', 'cough']):
         return RESPONSES['health'][0]
+    
+    # Check for questions
+    if '?' in user_input:
+        return "That's a good question! I can provide general information. For specific medical advice, please consult a healthcare professional."
     
     # Default response
     return RESPONSES['default'][0]
 
 # Vercel serverless function handler
-def handler(request):
-    """Vercel serverless function handler"""
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            'body': ''
-        }
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
     
-    if request.method != 'POST':
-        return {
-            'statusCode': 405,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({'error': 'Method not allowed'})
-        }
-    
-    try:
-        body = {}
-        if hasattr(request, 'json') and request.json:
-            body = request.json
-        elif hasattr(request, 'body'):
-            if isinstance(request.body, str):
-                body = json.loads(request.body)
-            elif isinstance(request.body, dict):
-                body = request.body
-        
-        user_input = body.get('input', '').strip()
-        chat_id = body.get('chat_id', 1)
-        
-        if not user_input:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({'error': 'No input provided'})
-            }
-        
-        # Generate response
-        response = get_simple_response(user_input)
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
+    def do_POST(self):
+        """Handle POST requests"""
+        try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            # Parse JSON body
+            try:
+                body = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError:
+                body = {}
+            
+            user_input = body.get('input', '').strip()
+            chat_id = body.get('chat_id', 1)
+            
+            if not user_input:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'No input provided'}).encode('utf-8'))
+                return
+            
+            # Generate response
+            response = get_simple_response(user_input)
+            
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
                 'response': response,
                 'message': 'Simple chatbot is active. For advanced AI features, consider integrating with OpenAI or Google Gemini API.'
-            })
-        }
-        
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({'error': f'An error occurred: {str(e)}'})
-        }
-
+            }).encode('utf-8'))
+            
+        except Exception as e:
+            import traceback
+            error_details = str(e)
+            print(f"ERROR in chatbot handler: {error_details}")
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'error': f'Server error: {error_details}'
+            }).encode('utf-8'))
