@@ -2,8 +2,12 @@
  * Build script to remove requirements.txt before Vercel build
  * This prevents Vercel from installing heavy Python dependencies
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const rootRequirements = path.join(__dirname, '..', 'requirements.txt');
 const backendRequirements = path.join(__dirname, '..', 'requirements-backend-only.txt');
@@ -44,4 +48,3 @@ if (fs.existsSync(apiRequirements)) {
 }
 
 console.log('✅ Pre-build cleanup complete!');
-
