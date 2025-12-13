@@ -1,0 +1,14 @@
+# Ignore large files from serverless functions
+backend-api/models/*.pkl
+backend-api/models/improved_enhanced_models.pkl
+backend-api/models/hybrid_model_v5.pkl
+backend-api/models/improved_model_v2.pkl
+backend-api/models/improved_model_v4.pkl
+backend-api/models/improved_model_v5_simple.pkl
+backend-api/models/improved_model.pkl
+backend-api/models/perfect_model.pkl
+node_modules/
+dist/
+.vscode/
+.git/
+

@@ -12,14 +12,21 @@ backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend-api')
 if os.path.exists(backend_path):
     sys.path.insert(0, backend_path)
 
-# Import the prediction logic
-try:
-    from main import get_predicted_value, helper
-except ImportError:
-    # Fallback if import fails
-    def get_predicted_value(symptoms):
+# Import only what we need - lazy loading to reduce size
+def get_predicted_value(symptoms):
+    """Lazy import to reduce function size"""
+    try:
+        from main import get_predicted_value as _get_predicted_value
+        return _get_predicted_value(symptoms)
+    except ImportError:
         return "Error: Backend not configured", 0.0, "error", {}
-    def helper(disease):
+
+def helper(disease):
+    """Lazy import to reduce function size"""
+    try:
+        from main import helper as _helper
+        return _helper(disease)
+    except ImportError:
         return "Error", ["Error"], ["Error"], ["Error"], ["Error"]
 
 def handler(request):
