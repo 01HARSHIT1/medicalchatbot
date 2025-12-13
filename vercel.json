@@ -11,7 +11,6 @@
       "memory": 3008
     }
   },
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "dist",
-  "installCommand": "rm -f requirements.txt requirements-backend-only.txt 2>/dev/null; npm install"
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
 }

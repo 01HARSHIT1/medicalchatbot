@@ -1,0 +1,3 @@
+# Empty - No dependencies
+# This file prevents Vercel from installing heavy Python packages
+
