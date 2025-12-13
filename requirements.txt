@@ -1,2 +1,0 @@
-# Empty - No dependencies needed
-# Serverless functions use pure Python standard library only
