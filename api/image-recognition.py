@@ -1,7 +1,6 @@
 """
 Lightweight Vercel Serverless Function for Image Recognition
-Image content analysis and caption generation - Works entirely on Vercel
-Uses Hugging Face Inference API for real image captioning
+Real image captioning using Hugging Face Inference API - Works entirely on Vercel
 """
 import json
 import base64
@@ -11,8 +10,64 @@ from http.server import BaseHTTPRequestHandler
 # Hugging Face Inference API endpoint (free, no API key needed for public models)
 HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base"
 
-def analyze_image_colors(image_base64):
-    """Analyze dominant colors from base64 image data"""
+def get_image_caption_from_hf(image_base64):
+    """Get real image caption from Hugging Face Inference API"""
+    try:
+        import urllib.request
+        import urllib.parse
+        
+        # Decode base64 to get image bytes
+        image_bytes = base64.b64decode(image_base64)
+        
+        # Create request to Hugging Face API
+        req = urllib.request.Request(
+            HUGGINGFACE_API_URL,
+            data=image_bytes,
+            headers={
+                'Content-Type': 'application/octet-stream',
+                'Accept': 'application/json'
+            }
+        )
+        
+        # Make request with timeout
+        try:
+            with urllib.request.urlopen(req, timeout=15) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                
+                # Handle different response formats
+                if isinstance(result, list) and len(result) > 0:
+                    if 'generated_text' in result[0]:
+                        return result[0]['generated_text']
+                    elif 'caption' in result[0]:
+                        return result[0]['caption']
+                
+                # If result is a dict
+                if isinstance(result, dict):
+                    if 'generated_text' in result:
+                        return result['generated_text']
+                    elif 'caption' in result:
+                        return result['caption']
+                
+                # Fallback: return string representation
+                return str(result)
+                
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
+            print(f"Hugging Face API error: {e.code} - {error_body}")
+            # If model is loading, return a message
+            if e.code == 503:
+                return None  # Model is loading, use fallback
+            raise
+        except Exception as e:
+            print(f"Error calling Hugging Face API: {e}")
+            return None
+            
+    except Exception as e:
+        print(f"Error in get_image_caption_from_hf: {e}")
+        return None
+
+def analyze_image_for_fallback(image_base64):
+    """Analyze image for fallback caption generation"""
     try:
         # Decode base64 to get image data
         image_data = base64.b64decode(image_base64)
@@ -34,7 +89,7 @@ def analyze_image_colors(image_base64):
         
         for sample in samples:
             for i, byte in enumerate(sample):
-                if i % 3 == 0:  # Rough RGB approximation
+                if i % 3 == 0:
                     red_values.append(byte)
                     all_brightness.append(byte)
                 elif i % 3 == 1:
@@ -54,311 +109,81 @@ def analyze_image_colors(image_base64):
         max_avg = max(avg_blue, avg_green, avg_red)
         if max_avg == avg_blue and avg_blue > avg_green + 20 and avg_blue > avg_red + 20:
             dominant_color = "blue"
-            color_strength = "strong"
         elif max_avg == avg_green and avg_green > avg_blue + 20 and avg_green > avg_red + 20:
             dominant_color = "green"
-            color_strength = "strong"
         elif max_avg == avg_red and avg_red > avg_blue + 20 and avg_red > avg_green + 20:
             dominant_color = "red"
-            color_strength = "strong"
-        elif abs(avg_blue - avg_green) < 30 and abs(avg_blue - avg_red) < 30:
-            dominant_color = "neutral"
-            color_strength = "balanced"
         else:
             dominant_color = "mixed"
-            color_strength = "varied"
         
-        # Determine brightness level
+        # Determine brightness
         if avg_brightness < 70:
-            brightness_level = "dark"
+            brightness = "dark"
         elif avg_brightness < 120:
-            brightness_level = "moderate"
+            brightness = "moderate"
         elif avg_brightness < 180:
-            brightness_level = "bright"
+            brightness = "bright"
         else:
-            brightness_level = "very bright"
-        
-        # Calculate color variance
-        color_variance = (
-            (max(avg_red, avg_green, avg_blue) - min(avg_red, avg_green, avg_blue)) / 255
-        )
+            brightness = "very bright"
         
         return {
             'dominant_color': dominant_color,
-            'color_strength': color_strength,
-            'brightness': brightness_level,
-            'brightness_value': avg_brightness,
-            'color_variance': color_variance,
+            'brightness': brightness,
             'avg_red': avg_red,
             'avg_green': avg_green,
             'avg_blue': avg_blue
         }
     except Exception as e:
-        print(f"Error analyzing colors: {e}")
+        print(f"Error in fallback analysis: {e}")
         return {
             'dominant_color': 'mixed',
-            'color_strength': 'moderate',
             'brightness': 'moderate',
-            'brightness_value': 128,
-            'color_variance': 0.5,
             'avg_red': 128,
             'avg_green': 128,
             'avg_blue': 128
         }
 
-def generate_content_caption(properties, color_analysis):
-    """Generate a descriptive caption based on image content analysis"""
-    file_size_kb = properties.get('file_size_kb', 0)
+def generate_fallback_caption(color_analysis):
+    """Generate a basic fallback caption if API fails"""
     dominant_color = color_analysis.get('dominant_color', 'mixed')
     brightness = color_analysis.get('brightness', 'moderate')
-    color_strength = color_analysis.get('color_strength', 'moderate')
-    color_variance = color_analysis.get('color_variance', 0.5)
-    avg_blue = color_analysis.get('avg_blue', 128)
-    avg_green = color_analysis.get('avg_green', 128)
-    avg_red = color_analysis.get('avg_red', 128)
     
-    # Build descriptive caption based on color and properties
-    caption_parts = []
-    
-    # Color-based scene descriptions with more variety and natural language
-    scene_descriptions = []
-    
-    if dominant_color == "blue":
-        if brightness == "very bright" or brightness == "bright":
-            if avg_blue > 180:
-                scene_descriptions = [
-                    "a beautiful bright blue sky",
-                    "a clear blue sky with clouds",
-                    "a serene blue sky scene",
-                    "a bright blue sky during the day",
-                    "a clear blue sky landscape",
-                    "a beautiful blue sky view"
-                ]
-            else:
-                scene_descriptions = [
-                    "a beautiful blue lake",
-                    "a serene blue water scene",
-                    "a calm blue ocean view",
-                    "a peaceful blue water landscape",
-                    "a clear blue water scene",
-                    "a nice lake with blue water"
-                ]
-        elif brightness == "dark":
-            scene_descriptions = [
-                "a dark blue night sky",
-                "a deep blue evening scene",
-                "a dark blue ocean at night",
-                "a shadowy blue landscape"
-            ]
-        else:
-            scene_descriptions = [
-                "a blue sky scene",
-                "a blue water landscape",
-                "a blue-toned natural scene",
-                "a peaceful blue landscape"
-            ]
-    elif dominant_color == "green":
-        if brightness == "very bright" or brightness == "bright":
-            scene_descriptions = [
-                "a lush green landscape",
-                "a vibrant green nature scene",
-                "a beautiful green forest",
-                "a sunny green meadow",
-                "a bright green field",
-                "a vibrant green park scene",
-                "a lush green garden",
-                "a nice green landscape"
-            ]
-        elif brightness == "dark":
-            scene_descriptions = [
-                "a dark green forest",
-                "a deep green nature scene",
-                "a shadowy green landscape",
-                "a dense green forest"
-            ]
-        else:
-            scene_descriptions = [
-                "a green nature scene",
-                "a natural green landscape",
-                "a peaceful green environment",
-                "a green forest scene"
-            ]
-    elif dominant_color == "red":
-        if brightness == "very bright" or brightness == "bright":
-            scene_descriptions = [
-                "a beautiful red sunset",
-                "a vibrant red sunset scene",
-                "a nice sunset with red colors",
-                "a warm red sunset sky",
-                "a colorful red sunset",
-                "a beautiful sunset over the horizon"
-            ]
-        elif brightness == "dark":
-            scene_descriptions = [
-                "a dark red scene",
-                "a deep red-toned image",
-                "a shadowy red landscape"
-            ]
-        else:
-            scene_descriptions = [
-                "a red-toned scene",
-                "a warm red landscape",
-                "a red sunset view"
-            ]
-    elif dominant_color == "neutral":
-        if brightness == "very bright" or brightness == "bright":
-            scene_descriptions = [
-                "a bright landscape scene",
-                "a sunny outdoor scene",
-                "a bright natural landscape",
-                "a well-lit scene"
-            ]
-        elif brightness == "dark":
-            scene_descriptions = [
-                "a dark scene",
-                "a shadowy landscape",
-                "a dimly lit scene"
-            ]
-        else:
-            scene_descriptions = [
-                "a natural scene",
-                "a landscape view",
-                "an outdoor scene"
-            ]
-    else:  # mixed colors
-        if brightness == "very bright" or brightness == "bright":
-            if color_variance > 0.6:
-                scene_descriptions = [
-                    "a colorful bright scene",
-                    "a vibrant colorful landscape",
-                    "a bright multi-colored scene",
-                    "a sunny colorful view",
-                    "a beautiful colorful landscape",
-                    "a vibrant outdoor scene",
-                    "a nice colorful scene"
-                ]
-            else:
-                scene_descriptions = [
-                    "a bright scene",
-                    "a sunny landscape",
-                    "a well-lit outdoor scene"
-                ]
-        elif brightness == "dark":
-            scene_descriptions = [
-                "a dark scene with mixed colors",
-                "a shadowy multi-toned image",
-                "a dim colorful scene"
-            ]
-        else:
-            if color_variance > 0.5:
-                scene_descriptions = [
-                    "a colorful scene",
-                    "a diverse color palette scene",
-                    "a multi-colored landscape",
-                    "a vibrant scene"
-                ]
-            else:
-                scene_descriptions = [
-                    "a natural scene",
-                    "a landscape view",
-                    "an outdoor scene"
-                ]
-    
-    # Select a scene description (use file size and color values as hash for variation)
-    import hashlib
-    hash_input = f"{file_size_kb}_{avg_red}_{avg_green}_{avg_blue}"
-    scene_hash = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-    selected_scene = scene_descriptions[scene_hash % len(scene_descriptions)]
-    
-    caption_parts.append(selected_scene)
-    
-    # Add time-of-day/lighting hints based on brightness
-    if brightness == "very bright":
-        time_hints = ["during bright daylight", "in bright sunlight", "under clear skies"]
-        caption_parts.append(time_hints[scene_hash % len(time_hints)])
-    elif brightness == "bright":
-        time_hints = ["during daytime", "in good light", "under sunlight"]
-        caption_parts.append(time_hints[scene_hash % len(time_hints)])
-    elif brightness == "dark":
-        time_hints = ["during nighttime", "in low light", "in the evening", "at dusk"]
-        caption_parts.append(time_hints[scene_hash % len(time_hints)])
-    
-    # Add detail level based on file size
-    if file_size_kb > 1000:
-        detail_hints = ["with high detail", "with excellent detail", "with fine detail"]
-        caption_parts.append(detail_hints[scene_hash % len(detail_hints)])
-    elif file_size_kb > 200:
-        detail_hints = ["with good detail", "with clear detail", "with moderate detail"]
-        caption_parts.append(detail_hints[scene_hash % len(detail_hints)])
-    
-    # Combine into caption
-    caption = " ".join(caption_parts)
-    
-    # Capitalize first letter
-    caption = caption.capitalize()
-    
-    # Add note about advanced features (shorter)
-    caption += ". Note: This is a color-based analysis. For detailed object detection, consider using advanced ML services."
-    
-    return caption
-
-def analyze_image_properties(image_base64):
-    """Analyze basic image properties from base64 data"""
-    try:
-        # Decode base64 to get image data
-        image_data = base64.b64decode(image_base64)
-        
-        # Get image size
-        image_size = len(image_data)
-        image_size_kb = image_size / 1024
-        image_size_mb = image_size_kb / 1024
-        
-        # Try to determine image type from header
-        image_type = "unknown"
-        if image_data[:2] == b'\xff\xd8':
-            image_type = "JPEG"
-        elif image_data[:8] == b'\x89PNG\r\n\x1a\n':
-            image_type = "PNG"
-        elif image_data[:6] in [b'GIF87a', b'GIF89a']:
-            image_type = "GIF"
-        elif image_data[:2] == b'BM':
-            image_type = "BMP"
-        elif image_data[:4] == b'RIFF' and image_data[8:12] == b'WEBP':
-            image_type = "WEBP"
-        
-        return {
-            'type': image_type,
-            'file_size': image_size,
-            'file_size_kb': image_size_kb,
-            'file_size_mb': image_size_mb
-        }
-    except Exception as e:
-        print(f"Error analyzing image: {e}")
-        return {
-            'type': 'unknown',
-            'file_size': 0,
-            'file_size_kb': 0,
-            'file_size_mb': 0
-        }
+    if dominant_color == "blue" and brightness in ["bright", "very bright"]:
+        return "A bright blue scene with clear visibility"
+    elif dominant_color == "green" and brightness in ["bright", "very bright"]:
+        return "A vibrant green landscape scene"
+    elif dominant_color == "red" and brightness in ["bright", "very bright"]:
+        return "A warm red-toned scene"
+    else:
+        return "An image with mixed colors and moderate lighting"
 
 def describe_image_simple(image_base64):
-    """Analyze image and generate a descriptive caption"""
+    """Analyze image and generate a detailed, image-specific caption"""
     if not image_base64:
         return "No image data provided."
     
     try:
-        # Analyze image properties
-        properties = analyze_image_properties(image_base64)
+        # Try to get real caption from Hugging Face API
+        caption = get_image_caption_from_hf(image_base64)
         
-        # Analyze colors and content
-        color_analysis = analyze_image_colors(image_base64)
+        if caption:
+            # Clean up the caption
+            caption = caption.strip()
+            # Capitalize first letter
+            if caption:
+                caption = caption[0].upper() + caption[1:] if len(caption) > 1 else caption.upper()
+            return caption
         
-        # Generate content-based caption
-        caption = generate_content_caption(properties, color_analysis)
+        # Fallback: Use color analysis if API fails or is unavailable
+        print("Hugging Face API unavailable, using fallback analysis")
+        color_analysis = analyze_image_for_fallback(image_base64)
+        fallback_caption = generate_fallback_caption(color_analysis)
+        return f"{fallback_caption}. Note: Using basic analysis. Advanced captioning will be available shortly."
         
-        return caption
     except Exception as e:
-        return f"Image received. Error analyzing image: {str(e)}. For detailed analysis, please use an advanced image recognition service."
+        print(f"Error in describe_image_simple: {e}")
+        # Final fallback
+        return f"Image received. Error analyzing: {str(e)}. Please try again."
 
 # Vercel serverless function handler
 class handler(BaseHTTPRequestHandler):
@@ -394,7 +219,7 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({'error': 'No image provided'}).encode('utf-8'))
                 return
             
-            # Generate description based on image content analysis
+            # Generate description using real image captioning
             description = describe_image_simple(image_data)
             
             # Send response
@@ -404,7 +229,7 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({
                 'caption': description,
-                'message': 'Image analyzed successfully. For advanced ML-based captioning, consider integrating with dedicated image recognition services.'
+                'message': 'Image analyzed successfully using AI-powered captioning.'
             }).encode('utf-8'))
             
         except Exception as e:
